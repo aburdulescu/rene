@@ -1,0 +1,10 @@
+/zig-out/
+/zig-cache/
+
+/go/find
+
+/busybox/
+/*.perf
+/*.time
+
+/susv4-2018/
