@@ -10,48 +10,56 @@ pub fn build(b: *std.Build) void {
         .ReleaseFast, .ReleaseSmall => true,
     };
 
-    const exe_options = std.Build.ExecutableOptions{
+    const exe_opts = std.Build.ExecutableOptions{
         .name = "rene",
         .root_source_file = .{ .path = "src/main.zig" },
         .target = target,
         .optimize = optimize,
         .single_threaded = true,
+        .strip = strip,
         .link_libc = link_libc,
     };
 
-    const exe = b.addExecutable(exe_options);
-    exe.strip = strip;
+    const exe = b.addExecutable(exe_opts);
     b.installArtifact(exe);
 
     const release = b.step("release", "Make a binary release");
-
-    const release_targets = &[_][]const u8{
-        "aarch64-linux",
-        "x86_64-linux",
-        "aarch64-macos",
-        "x86_64-macos",
-        //"x86_64-windows-gnu",
+    const release_targets = [_]std.Target.Query{
+        .{
+            .cpu_arch = .aarch64,
+            .os_tag = .linux,
+        },
+        .{
+            .cpu_arch = .x86_64,
+            .os_tag = .linux,
+        },
+        .{
+            .cpu_arch = .aarch64,
+            .os_tag = .macos,
+        },
+        .{
+            .cpu_arch = .x86_64,
+            .os_tag = .macos,
+        },
     };
 
-    for (release_targets) |target_string| {
-        var iter = std.mem.splitSequence(u8, target_string, "-");
-        const arch = iter.next().?;
-        const os = iter.next().?;
+    for (release_targets) |target_query| {
+        const resolved_target = b.resolveTargetQuery(target_query);
+        const t = resolved_target.result;
 
-        const rel_exe = b.addExecutable(exe_options);
-        rel_exe.target = std.zig.CrossTarget.parse(.{
-            .arch_os_abi = target_string,
-        }) catch unreachable;
-        rel_exe.strip = true;
-        rel_exe.optimize = if (optimize != .Debug) optimize else .ReleaseSafe;
+        var rel_exe_opts = exe_opts;
+        rel_exe_opts.strip = true;
+        rel_exe_opts.target = resolved_target;
+        rel_exe_opts.optimize = if (optimize != .Debug) optimize else .ReleaseSafe;
+        const rel_exe = b.addExecutable(rel_exe_opts);
 
         const install = b.addInstallArtifact(rel_exe, .{});
         install.dest_dir = .prefix;
         install.dest_sub_path = b.fmt("{s}/{s}-{s}-{s}", .{
-            @tagName(rel_exe.optimize),
+            @tagName(rel_exe_opts.optimize),
             rel_exe.name,
-            os,
-            arch,
+            @tagName(t.os.tag),
+            @tagName(t.cpu.arch),
         });
 
         release.dependOn(&install.step);
