@@ -4,6 +4,7 @@ const du = @import("./du.zig");
 const cat = @import("./cat.zig");
 const echo = @import("./echo.zig");
 const basename = @import("./basename.zig");
+const dirname = @import("./dirname.zig");
 const time = @import("./time.zig");
 const rm = @import("./rm.zig");
 const touch = @import("./touch.zig");
@@ -13,7 +14,7 @@ const usage =
     \\Usage: rene <COMMAND> [OPTIONS]
     \\
     \\COMMANDS:
-    \\  find, du, cat, echo, basename, time, rm, touch, ls
+    \\  find, du, cat, echo, basename, dirname, time, rm, touch, ls
     \\
     \\Run 'rene <command> --help' for details about a specific command.
     \\
@@ -84,6 +85,7 @@ const commands = &[_]Command{
     .{ .name = "cat", .runner = cat.run },
     .{ .name = "echo", .runner = echo.run },
     .{ .name = "basename", .runner = basename.run },
+    .{ .name = "dirname", .runner = dirname.run },
     .{ .name = "time", .runner = time.run },
     .{ .name = "rm", .runner = rm.run },
     .{ .name = "touch", .runner = touch.run },
