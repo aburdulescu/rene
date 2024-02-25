@@ -6,5 +6,6 @@
 /busybox/
 /*.perf
 /*.time
+/*.turbostat
 
 /susv4-2018/
