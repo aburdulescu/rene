@@ -111,7 +111,7 @@ pub fn run(allocator: std.mem.Allocator, args: [][]const u8) anyerror!void {
     }
 }
 
-fn tvToNs(tv: std.os.timeval) u64 {
+fn tvToNs(tv: std.os.linux.timeval) u64 {
     const s: u64 = @intCast(tv.tv_sec);
     const u: u64 = @intCast(tv.tv_usec);
     return s * std.time.ns_per_s + u * std.time.ns_per_us;
