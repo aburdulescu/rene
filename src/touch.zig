@@ -10,7 +10,7 @@ const usage =
     \\
 ;
 
-pub fn run(_: std.mem.Allocator, args: [][]const u8) anyerror!void {
+pub fn run(_: std.mem.Allocator, args: [][:0]u8) anyerror!void {
     const stdout = std.io.getStdOut().writer();
     const stderr = std.io.getStdErr().writer();
 

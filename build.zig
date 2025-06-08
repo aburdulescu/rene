@@ -1,6 +1,16 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 pub fn build(b: *std.Build) void {
+    comptime {
+        const needed = "0.14.0";
+        const current = builtin.zig_version;
+        const needed_vers = std.SemanticVersion.parse(needed) catch unreachable;
+        if (current.order(needed_vers) != .eq) {
+            @compileError(std.fmt.comptimePrint("Your zig version is not supported, need version {s}", .{needed}));
+        }
+    }
+
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -12,7 +22,7 @@ pub fn build(b: *std.Build) void {
 
     const exe_opts = std.Build.ExecutableOptions{
         .name = "rene",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
         .single_threaded = true,

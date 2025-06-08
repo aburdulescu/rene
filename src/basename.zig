@@ -16,7 +16,7 @@ const Flags = struct {
     suffix: ?[]const u8,
 };
 
-pub fn run(_: std.mem.Allocator, args: [][]const u8) anyerror!void {
+pub fn run(_: std.mem.Allocator, args: [][:0]u8) anyerror!void {
     const stdout = std.io.getStdOut().writer();
     const stderr = std.io.getStdErr().writer();
 

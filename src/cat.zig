@@ -12,7 +12,7 @@ const usage =
     \\
 ;
 
-pub fn run(_: std.mem.Allocator, args: [][]const u8) anyerror!void {
+pub fn run(_: std.mem.Allocator, args: [][:0]u8) anyerror!void {
     const stdin = std.io.getStdIn().reader();
     const stdout = std.io.getStdOut().writer();
     const stderr = std.io.getStdErr().writer();
@@ -39,7 +39,7 @@ pub fn run(_: std.mem.Allocator, args: [][]const u8) anyerror!void {
         return;
     }
 
-    var path_buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
+    var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
 
     for (pos_args) |path| {
         if (std.mem.eql(u8, args[i], "-")) {
@@ -56,6 +56,6 @@ pub fn run(_: std.mem.Allocator, args: [][]const u8) anyerror!void {
 }
 
 fn copy(reader: anytype, writer: anytype) !void {
-    var fifo = std.fifo.LinearFifo(u8, .{ .Static = std.mem.page_size }).init();
+    var fifo = std.fifo.LinearFifo(u8, .{ .Static = std.heap.page_size_min }).init();
     try fifo.pump(reader, writer);
 }

@@ -15,7 +15,7 @@ const Flags = struct {
     verbose: bool,
 };
 
-pub fn run(allocator: std.mem.Allocator, args: [][]const u8) anyerror!void {
+pub fn run(allocator: std.mem.Allocator, args: [][:0]u8) anyerror!void {
     const stdout = std.io.getStdOut().writer();
     const stderr = std.io.getStdErr().writer();
 
@@ -112,8 +112,8 @@ pub fn run(allocator: std.mem.Allocator, args: [][]const u8) anyerror!void {
 }
 
 fn tvToNs(tv: std.os.linux.timeval) u64 {
-    const s: u64 = @intCast(tv.tv_sec);
-    const u: u64 = @intCast(tv.tv_usec);
+    const s: u64 = @intCast(tv.sec);
+    const u: u64 = @intCast(tv.usec);
     return s * std.time.ns_per_s + u * std.time.ns_per_us;
 }
 

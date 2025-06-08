@@ -42,7 +42,7 @@ pub fn main() !void {
     // otherwise => use next arg
     if (args.len == 0 or
         (args.len > 0 and
-        std.mem.eql(u8, args[0], "--help")))
+            std.mem.eql(u8, args[0], "--help")))
     {
         try stdout.writeAll(usage);
         return;
@@ -63,7 +63,7 @@ pub fn main() !void {
     std.process.exit(1);
 }
 
-const CmdRunner = *const fn (std.mem.Allocator, [][]const u8) anyerror!void;
+const CmdRunner = *const fn (std.mem.Allocator, [][:0]u8) anyerror!void;
 
 fn parseCmd(name: []const u8) ?CmdRunner {
     for (commands) |cmd| {

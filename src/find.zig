@@ -19,7 +19,7 @@ const Flags = struct {
     ignore_hidden: bool,
 };
 
-pub fn run(allocator: std.mem.Allocator, args: [][]const u8) anyerror!void {
+pub fn run(allocator: std.mem.Allocator, args: [][:0]u8) anyerror!void {
     const stdout = std.io.getStdOut().writer();
     const stderr = std.io.getStdErr().writer();
 
@@ -95,7 +95,7 @@ pub fn run(allocator: std.mem.Allocator, args: [][]const u8) anyerror!void {
     }
 
     // use a FixedBufferAllocator for joining paths
-    var buf: [std.fs.MAX_PATH_BYTES]u8 = undefined;
+    var buf: [std.fs.max_path_bytes]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(buf[0..]);
 
     while (try walker.next()) |entry| {
