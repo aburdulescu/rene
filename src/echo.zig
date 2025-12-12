@@ -18,7 +18,7 @@ const Flags = struct {
     interpret_escapes: bool,
 };
 
-pub fn run(_: std.mem.Allocator, stdout: std.Io.Writer, stderr: std.Io.Writer, args: [][:0]u8) anyerror!void {
+pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!void {
     var flags = Flags{
         .print_newline = true,
         .interpret_escapes = false,

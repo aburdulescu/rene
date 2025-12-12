@@ -12,8 +12,10 @@ const usage =
     \\
 ;
 
-pub fn run(_: std.mem.Allocator, stdout: std.Io.Writer, stderr: std.Io.Writer, args: [][:0]u8) anyerror!void {
-    const stdin = std.io.getStdIn().reader();
+pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!void {
+    var stdin_buffer: [1024]u8 = undefined;
+    var stdin_reader = std.fs.File.stdin().writer(&stdin_buffer);
+    const stdin = &stdin_reader.interface;
 
     var i: usize = 0;
     while (i < args.len) {
@@ -49,11 +51,13 @@ pub fn run(_: std.mem.Allocator, stdout: std.Io.Writer, stderr: std.Io.Writer, a
         const file = try std.fs.openFileAbsolute(real_path, .{});
         defer file.close();
 
+
         try copy(file.reader(), stdout);
     }
 }
 
 fn copy(reader: anytype, writer: anytype) !void {
+    // TODO: implement this by hand or find std fn
     var fifo = std.fifo.LinearFifo(u8, .{ .Static = std.heap.page_size_min }).init();
     try fifo.pump(reader, writer);
 }

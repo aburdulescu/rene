@@ -10,7 +10,7 @@ const usage =
     \\
 ;
 
-pub fn run(_: std.mem.Allocator, stdout: std.Io.Writer, stderr: std.Io.Writer, args: [][:0]u8) anyerror!void {
+pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!void {
     var i: usize = 0;
     while (i < args.len) {
         if (std.mem.eql(u8, args[i], "--help")) {

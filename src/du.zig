@@ -27,7 +27,7 @@ var flags = Flags{
     .print_total = false,
 };
 
-pub fn run(allocator: std.mem.Allocator, stdout: std.Io.Writer, stderr: std.Io.Writer, args: [][:0]u8) anyerror!void {
+pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!void {
     var i: usize = 0;
     while (i < args.len) {
         if (std.mem.eql(u8, args[i], "--help")) {
@@ -56,20 +56,20 @@ pub fn run(allocator: std.mem.Allocator, stdout: std.Io.Writer, stderr: std.Io.W
 
     const pos_args = args[i..];
     if (pos_args.len == 0) {
-        try walk_dir(allocator, ".");
+        try walk_dir(stdout, allocator, ".");
     }
 
     for (pos_args) |path| {
         const st = try std.fs.cwd().statFile(path);
         if (st.kind != std.fs.File.Kind.directory) {
-            try print(path, st.size);
+            try print(stdout, path, st.size);
         } else {
-            try walk_dir(allocator, path);
+            try walk_dir(stdout, allocator, path);
         }
     }
 }
 
-fn walk_dir(allocator: std.mem.Allocator, dir_path: []const u8) !void {
+fn walk_dir(stdout: *std.Io.Writer, allocator: std.mem.Allocator, dir_path: []const u8) !void {
     var dir = try std.fs.cwd().openDir(dir_path, .{ .iterate = true });
     defer dir.close();
 
@@ -90,7 +90,7 @@ fn walk_dir(allocator: std.mem.Allocator, dir_path: []const u8) !void {
         total += st.size;
     }
 
-    try print(dir_path, total);
+    try print(stdout, dir_path, total);
 }
 
 const KB = 1 << 10;
@@ -99,9 +99,7 @@ const GB = MB << 10;
 
 const sep = "  ";
 
-fn print(dir: []const u8, total: u128) !void {
-    const stdout = std.io.getStdOut().writer();
-
+fn print(stdout: *std.Io.Writer, dir: []const u8, total: u128) !void {
     if (flags.print_bytes) {
         try stdout.print("{d}{s}{s}\n", .{ total, sep, dir });
         return;

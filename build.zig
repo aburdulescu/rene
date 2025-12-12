@@ -29,7 +29,7 @@ pub fn build(b: *std.Build) void {
     };
 
     const exe = b.addExecutable(.{
-        .name = "ingot",
+        .name = "rene",
         .root_module = b.createModule(opts),
     });
     b.installArtifact(exe);

@@ -16,7 +16,7 @@ const Flags = struct {
     suffix: ?[]const u8,
 };
 
-pub fn run(_: std.mem.Allocator, stdout: std.Io.Writer, stderr: std.Io.Writer, args: [][:0]u8) anyerror!void {
+pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!void {
     var flags = Flags{
         .suffix = null,
     };
@@ -24,7 +24,7 @@ pub fn run(_: std.mem.Allocator, stdout: std.Io.Writer, stderr: std.Io.Writer, a
     var i: usize = 0;
     while (i < args.len) {
         if (std.mem.eql(u8, args[i], "--help")) {
-            try stdout.writeAll(usage);
+            try stdout.print(usage, .{});
             return;
         } else if (std.mem.eql(u8, args[i], "-s")) {
             if (i + 1 == args.len) {
