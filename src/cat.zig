@@ -12,10 +12,8 @@ const usage =
     \\
 ;
 
-pub fn run(_: std.mem.Allocator, args: [][:0]u8) anyerror!void {
+pub fn run(_: std.mem.Allocator, stdout: std.Io.Writer, stderr: std.Io.Writer, args: [][:0]u8) anyerror!void {
     const stdin = std.io.getStdIn().reader();
-    const stdout = std.io.getStdOut().writer();
-    const stderr = std.io.getStdErr().writer();
 
     var i: usize = 0;
     while (i < args.len) {

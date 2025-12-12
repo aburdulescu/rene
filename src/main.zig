@@ -22,8 +22,6 @@ const usage =
 ;
 
 pub fn main() !void {
-    const stdout = std.io.getStdOut().writer();
-
     var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena_instance.deinit();
     const arena = arena_instance.allocator();
@@ -44,7 +42,7 @@ pub fn main() !void {
         (args.len > 0 and
             std.mem.eql(u8, args[0], "--help")))
     {
-        try stdout.writeAll(usage);
+        try std.debug.print(usage, .{});
         return;
     }
 
@@ -53,17 +51,31 @@ pub fn main() !void {
 
     // supported cmd => run it
     if (parseCmd(cmd)) |runner| {
-        try runner(arena, args);
+        var stdout_buffer: [1024]u8 = undefined;
+        var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+        const stdout = &stdout_writer.interface;
+
+        var stderr_buffer: [1024]u8 = undefined;
+        var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
+        const stderr = &stderr_writer.interface;
+
+        defer {
+            stdout.flush();
+            stderr.flush();
+        }
+
+        try runner(arena, stdout, stderr, args);
+
         return;
     }
 
     // unknown cmd
-    try stdout.writeAll(usage);
-    try stdout.print("error: unknown command '{s}'\n", .{cmd});
+    try std.debug.print(usage, .{});
+    try std.debug.print("error: unknown command '{s}'\n", .{cmd});
     std.process.exit(1);
 }
 
-const CmdRunner = *const fn (std.mem.Allocator, [][:0]u8) anyerror!void;
+const CmdRunner = *const fn (allocator: std.mem.Allocator, stdout: std.Io.Writer, stderr: std.Io.Writer, [][:0]u8) anyerror!void;
 
 fn parseCmd(name: []const u8) ?CmdRunner {
     for (commands) |cmd| {

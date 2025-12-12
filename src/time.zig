@@ -15,10 +15,7 @@ const Flags = struct {
     verbose: bool,
 };
 
-pub fn run(allocator: std.mem.Allocator, args: [][:0]u8) anyerror!void {
-    const stdout = std.io.getStdOut().writer();
-    const stderr = std.io.getStdErr().writer();
-
+pub fn run(allocator: std.mem.Allocator, stdout: std.Io.Writer, stderr: std.Io.Writer, args: [][:0]u8) anyerror!void {
     var flags = Flags{
         .verbose = false,
     };
