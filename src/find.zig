@@ -8,9 +8,9 @@ const usage =
     \\If the DIRECTORY is not specified, '.' will be used.
     \\
     \\OPTIONS:
-    \\  --help              print this message and exit
-    \\  -t, --type [d,f]    type of file to search for: d=directory, f=file
-    \\  -h, --hidden        ignore hidden files
+    \\  --help      print this message and exit
+    \\  -t [d,f]    type of file to search for: d=directory, f=file
+    \\  -h          ignore hidden files
     \\
 ;
 
