@@ -67,8 +67,11 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
             var it = dir.iterate();
             while (try it.next()) |entry| {
                 if (entry.kind == std.fs.File.Kind.sym_link) continue;
-                const size = try get_size(allocator, entry.name);
-                try files.append(allocator, Item{ .path = entry.name, .size = size });
+                const size = try get_size(allocator, dir, entry.name);
+                try files.append(allocator, Item{
+                    .path = try allocator.dupe(u8, entry.name),
+                    .size = size,
+                });
                 total += size;
             }
 
@@ -80,11 +83,11 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
             std.sort.block(Item, files.items, {}, cmp);
 
             for (files.items) |item| {
-                try print(stdout, item.path, item.size);
+                try print_child(stdout, path, item.path, item.size);
             }
             try print(stdout, path, total);
         } else {
-            const size = try get_size(allocator, path);
+            const size = try get_size(allocator, std.fs.cwd(), path);
             try print(stdout, path, size);
         }
     }
@@ -92,17 +95,17 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
     return 0;
 }
 
-fn get_size(allocator: std.mem.Allocator, path: []const u8) !u128 {
-    const st = try std.fs.cwd().statFile(path);
+fn get_size(allocator: std.mem.Allocator, parent_dir: std.fs.Dir, path: []const u8) !u128 {
+    const st = try parent_dir.statFile(path);
     if (st.kind != std.fs.File.Kind.directory) {
         return st.size;
     } else {
-        return walk_dir(allocator, path);
+        return walk_dir(allocator, parent_dir, path);
     }
 }
 
-fn walk_dir(allocator: std.mem.Allocator, dir_path: []const u8) !u128 {
-    var dir = try std.fs.cwd().openDir(dir_path, .{ .iterate = true });
+fn walk_dir(allocator: std.mem.Allocator, parent_dir: std.fs.Dir, path: []const u8) !u128 {
+    var dir = try parent_dir.openDir(path, .{ .iterate = true });
     defer dir.close();
 
     var walker = try dir.walk(allocator);
@@ -131,19 +134,36 @@ const GB = MB << 10;
 
 const sep = "  ";
 
-fn print(stdout: *std.Io.Writer, dir: []const u8, size: u128) !void {
+fn print(stdout: *std.Io.Writer, path: []const u8, size: u128) !void {
     if (flags.print_bytes) {
-        try stdout.print("{d}{s}{s}\n", .{ size, sep, dir });
+        try stdout.print("{d}{s}{s}\n", .{ size, sep, path });
         return;
     }
 
     if (size > GB) {
-        try stdout.print("{d}G{s}{s}\n", .{ size / GB, sep, dir });
+        try stdout.print("{d}G{s}{s}\n", .{ size / GB, sep, path });
     } else if (size > MB) {
-        try stdout.print("{d}M{s}{s}\n", .{ size / MB, sep, dir });
+        try stdout.print("{d}M{s}{s}\n", .{ size / MB, sep, path });
     } else if (size > KB) {
-        try stdout.print("{d}K{s}{s}\n", .{ size / KB, sep, dir });
+        try stdout.print("{d}K{s}{s}\n", .{ size / KB, sep, path });
     } else {
-        try stdout.print("{d}{s}{s}\n", .{ size, sep, dir });
+        try stdout.print("{d}{s}{s}\n", .{ size, sep, path });
+    }
+}
+
+fn print_child(stdout: *std.Io.Writer, parent: []const u8, path: []const u8, size: u128) !void {
+    if (flags.print_bytes) {
+        try stdout.print("{d}{s}{s}/{s}\n", .{ size, sep, parent, path });
+        return;
+    }
+
+    if (size > GB) {
+        try stdout.print("{d}G{s}{s}/{s}\n", .{ size / GB, sep, parent, path });
+    } else if (size > MB) {
+        try stdout.print("{d}M{s}{s}/{s}\n", .{ size / MB, sep, parent, path });
+    } else if (size > KB) {
+        try stdout.print("{d}K{s}{s}/{s}\n", .{ size / KB, sep, parent, path });
+    } else {
+        try stdout.print("{d}{s}{s}/{s}\n", .{ size, sep, parent, path });
     }
 }
