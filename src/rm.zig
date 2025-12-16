@@ -18,10 +18,7 @@ const Flags = struct {
     recurse: bool,
 };
 
-pub fn run(_: std.mem.Allocator, args: [][:0]u8) anyerror!void {
-    const stdout = std.io.getStdOut().writer();
-    const stderr = std.io.getStdErr().writer();
-
+pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!void {
     var flags = Flags{
         .force = false,
         .recurse = false,

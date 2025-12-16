@@ -3,11 +3,10 @@ const builtin = @import("builtin");
 
 pub fn build(b: *std.Build) void {
     comptime {
-        const needed = "0.14.0";
-        const current = builtin.zig_version;
-        const needed_vers = std.SemanticVersion.parse(needed) catch unreachable;
-        if (current.order(needed_vers) != .eq) {
-            @compileError(std.fmt.comptimePrint("Your zig version is not supported, need version {s}", .{needed}));
+        const need = std.SemanticVersion{ .major = 0, .minor = 15, .patch = 2 };
+        const have = builtin.zig_version;
+        if (need.order(have) != .eq) {
+            @compileError(std.fmt.comptimePrint("unsupported zig version: need {f}, have {f}", .{ need, have }));
         }
     }
 
@@ -20,8 +19,7 @@ pub fn build(b: *std.Build) void {
         .ReleaseFast, .ReleaseSmall => true,
     };
 
-    const exe_opts = std.Build.ExecutableOptions{
-        .name = "rene",
+    const opts = std.Build.Module.CreateOptions{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
@@ -30,43 +28,39 @@ pub fn build(b: *std.Build) void {
         .link_libc = link_libc,
     };
 
-    const exe = b.addExecutable(exe_opts);
+    const exe = b.addExecutable(.{
+        .name = "rene",
+        .root_module = b.createModule(opts),
+    });
     b.installArtifact(exe);
 
     const release = b.step("release", "Make a binary release");
     const release_targets = [_]std.Target.Query{
-        .{
-            .cpu_arch = .aarch64,
-            .os_tag = .linux,
-        },
-        .{
-            .cpu_arch = .x86_64,
-            .os_tag = .linux,
-        },
-        .{
-            .cpu_arch = .aarch64,
-            .os_tag = .macos,
-        },
-        .{
-            .cpu_arch = .x86_64,
-            .os_tag = .macos,
-        },
+        .{ .os_tag = .linux, .cpu_arch = .aarch64 },
+        .{ .os_tag = .linux, .cpu_arch = .x86_64 },
+        .{ .os_tag = .macos, .cpu_arch = .aarch64 },
+        .{ .os_tag = .macos, .cpu_arch = .x86_64 },
+        .{ .os_tag = .windows, .cpu_arch = .aarch64 },
+        .{ .os_tag = .windows, .cpu_arch = .x86_64 },
     };
 
     for (release_targets) |target_query| {
         const resolved_target = b.resolveTargetQuery(target_query);
         const t = resolved_target.result;
 
-        var rel_exe_opts = exe_opts;
-        rel_exe_opts.strip = true;
-        rel_exe_opts.target = resolved_target;
-        rel_exe_opts.optimize = if (optimize != .Debug) optimize else .ReleaseSafe;
-        const rel_exe = b.addExecutable(rel_exe_opts);
+        var rel_opts = opts;
+        rel_opts.strip = true;
+        rel_opts.target = resolved_target;
+        rel_opts.optimize = if (optimize != .Debug) optimize else .ReleaseFast;
+        const rel_exe = b.addExecutable(.{
+            .name = "rene",
+            .root_module = b.createModule(rel_opts),
+        });
 
         const install = b.addInstallArtifact(rel_exe, .{});
         install.dest_dir = .prefix;
         install.dest_sub_path = b.fmt("{s}/{s}-{s}-{s}", .{
-            @tagName(rel_exe_opts.optimize),
+            @tagName(rel_opts.optimize.?),
             rel_exe.name,
             @tagName(t.os.tag),
             @tagName(t.cpu.arch),

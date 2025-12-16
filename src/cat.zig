@@ -12,10 +12,10 @@ const usage =
     \\
 ;
 
-pub fn run(_: std.mem.Allocator, args: [][:0]u8) anyerror!void {
-    const stdin = std.io.getStdIn().reader();
-    const stdout = std.io.getStdOut().writer();
-    const stderr = std.io.getStdErr().writer();
+pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!void {
+    var stdin_buffer: [1024]u8 = undefined;
+    var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
+    const stdin = &stdin_reader.interface;
 
     var i: usize = 0;
     while (i < args.len) {
@@ -35,15 +35,16 @@ pub fn run(_: std.mem.Allocator, args: [][:0]u8) anyerror!void {
     const pos_args = args[i..];
 
     if (pos_args.len == 0) {
-        try copy(stdin, stdout);
+        try copy(stdout, stdin);
         return;
     }
 
     var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
+    var file_reader_buf: [8192]u8 = undefined;
 
     for (pos_args) |path| {
         if (std.mem.eql(u8, args[i], "-")) {
-            try copy(stdin, stdout);
+            try copy(stdout, stdin);
             continue;
         }
 
@@ -51,11 +52,14 @@ pub fn run(_: std.mem.Allocator, args: [][:0]u8) anyerror!void {
         const file = try std.fs.openFileAbsolute(real_path, .{});
         defer file.close();
 
-        try copy(file.reader(), stdout);
+        var file_reader = file.reader(&file_reader_buf);
+        try copy(stdout, &file_reader.interface);
     }
 }
 
-fn copy(reader: anytype, writer: anytype) !void {
-    var fifo = std.fifo.LinearFifo(u8, .{ .Static = std.heap.page_size_min }).init();
-    try fifo.pump(reader, writer);
+fn copy(writer: *std.Io.Writer, reader: *std.Io.Reader) !void {
+    _ = writer;
+    _ = reader;
+    // TODO: implement this by hand or find std fn
+    return error.NotImplemented;
 }
