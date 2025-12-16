@@ -98,7 +98,7 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
         try stderr.print("\tnvcsw      {d}\n", .{r.nvcsw});
         try stderr.print("\tnivcsw     {d}\n", .{r.nivcsw});
     } else {
-        try stderr.print("wall {D} usr {D} sys {D}\n", .{ wall_time, usr_time, sys_time });
+        try stderr.print("{D} wall {D} user {D} system\n", .{ wall_time, usr_time, sys_time });
     }
 }
 

@@ -43,7 +43,7 @@ pub fn main() !void {
     if (parseCmd(cmd)) |runner| {
         try runner(arena, stdout, stderr, args);
         try stdout.flush();
-        try stdout.flush();
+        try stderr.flush();
         return;
     }
 
@@ -63,7 +63,7 @@ pub fn main() !void {
     if (parseCmd(cmd)) |runner| {
         try runner(arena, stdout, stderr, args);
         try stdout.flush();
-        try stdout.flush();
+        try stderr.flush();
         return;
     }
 
