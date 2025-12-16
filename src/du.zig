@@ -46,53 +46,57 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
 
     const pos_args = args[i..];
     if (pos_args.len == 0) {
-        try stderr.print("error: file or directory not specified\n", .{});
-        return 1;
+        try handle_dir(allocator, stdout, ".");
+        return 0;
     }
 
     for (pos_args) |path| {
-        if (flags.print_list) {
-            const Item = struct {
-                path: []const u8,
-                size: u128,
-            };
-
-            var files = try std.ArrayList(Item).initCapacity(allocator, 100);
-
-            var dir = try std.fs.cwd().openDir(path, .{ .iterate = true });
-            defer dir.close();
-
-            var total: u128 = 0;
-
-            var it = dir.iterate();
-            while (try it.next()) |entry| {
-                if (entry.kind == std.fs.File.Kind.sym_link) continue;
-                const size = try get_size(allocator, dir, entry.name);
-                try files.append(allocator, Item{
-                    .path = try allocator.dupe(u8, entry.name),
-                    .size = size,
-                });
-                total += size;
-            }
-
-            const cmp = struct {
-                pub fn lessThan(_: void, a: Item, b: Item) bool {
-                    return a.size < b.size;
-                }
-            }.lessThan;
-            std.sort.block(Item, files.items, {}, cmp);
-
-            for (files.items) |item| {
-                try print_child(stdout, path, item.path, item.size);
-            }
-            try print(stdout, path, total);
-        } else {
-            const size = try get_size(allocator, std.fs.cwd(), path);
-            try print(stdout, path, size);
-        }
+        try handle_dir(allocator, stdout, path);
     }
 
     return 0;
+}
+
+fn handle_dir(allocator: std.mem.Allocator, stdout: *std.Io.Writer, path: []const u8) !void {
+    if (flags.print_list) {
+        const Item = struct {
+            path: []const u8,
+            size: u128,
+        };
+
+        var files = try std.ArrayList(Item).initCapacity(allocator, 100);
+
+        var dir = try std.fs.cwd().openDir(path, .{ .iterate = true });
+        defer dir.close();
+
+        var total: u128 = 0;
+
+        var it = dir.iterate();
+        while (try it.next()) |entry| {
+            if (entry.kind == std.fs.File.Kind.sym_link) continue;
+            const size = try get_size(allocator, dir, entry.name);
+            try files.append(allocator, Item{
+                .path = try allocator.dupe(u8, entry.name),
+                .size = size,
+            });
+            total += size;
+        }
+
+        const cmp = struct {
+            pub fn lessThan(_: void, a: Item, b: Item) bool {
+                return a.size < b.size;
+            }
+        }.lessThan;
+        std.sort.block(Item, files.items, {}, cmp);
+
+        for (files.items) |item| {
+            try print_child(stdout, path, item.path, item.size);
+        }
+        try print(stdout, path, total);
+    } else {
+        const size = try get_size(allocator, std.fs.cwd(), path);
+        try print(stdout, path, size);
+    }
 }
 
 fn get_size(allocator: std.mem.Allocator, parent_dir: std.fs.Dir, path: []const u8) !u128 {
