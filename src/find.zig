@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const usage =
+    \\
     \\Usage: find [OPTIONS] [DIRECTORY]
     \\
     \\Search for files in a DIRECTORY.
@@ -11,7 +12,6 @@ const usage =
     \\  -t, --type [d,f]    type of file to search for: d=directory, f=file
     \\  -h, --hidden        ignore hidden files
     \\
-    \\
 ;
 
 const Flags = struct {
@@ -19,7 +19,7 @@ const Flags = struct {
     ignore_hidden: bool,
 };
 
-pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!void {
+pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!u8 {
     var flags = Flags{
         .type = null,
         .ignore_hidden = false,
@@ -29,11 +29,11 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
     while (i < args.len) {
         if (std.mem.eql(u8, args[i], "--help")) {
             try stdout.writeAll(usage);
-            return;
+            return 1;
         } else if (std.mem.eql(u8, args[i], "-t") or std.mem.eql(u8, args[i], "--type")) {
             if (i + 1 == args.len) {
                 try stderr.print("error: -t needs a value\n", .{});
-                std.process.exit(1);
+                return 1;
             }
             flags.type = args[i + 1];
             i += 1;
@@ -42,7 +42,7 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
         } else if (std.mem.startsWith(u8, args[i], "-") or std.mem.startsWith(u8, args[i], "--")) {
             try stdout.writeAll(usage);
             try stderr.print("error: unknown option '{s}'\n", .{args[i]});
-            std.process.exit(1);
+            return 1;
         } else {
             break;
         }
@@ -59,7 +59,7 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
         else => {
             try stdout.writeAll(usage);
             try stderr.print("error: cannot handle more than one directory\n", .{});
-            std.process.exit(1);
+            return 1;
         },
     }
 
@@ -74,7 +74,7 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
                 "error: '{any}' is not a valid value for -t flag\n",
                 .{v},
             );
-            std.process.exit(1);
+            return 1;
         }
     }
 
@@ -109,4 +109,6 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
         try stdout.print("{s}\n", .{full_path});
         fba.reset();
     }
+
+    return 0;
 }

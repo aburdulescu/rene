@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const usage =
+    \\
     \\Usage: dirname [OPTIONS] [FILE]...
     \\
     \\Strip non-directory suffix from FILEs.
@@ -8,19 +9,18 @@ const usage =
     \\OPTIONS:
     \\  --help    print this message and exit
     \\
-    \\
 ;
 
-pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!void {
+pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!u8 {
     var i: usize = 0;
     while (i < args.len) {
         if (std.mem.eql(u8, args[i], "--help")) {
             try stdout.writeAll(usage);
-            return;
+            return 0;
         } else if (std.mem.startsWith(u8, args[i], "-") or std.mem.startsWith(u8, args[i], "--")) {
             try stdout.writeAll(usage);
             try stderr.print("error: unknown option '{s}'\n", .{args[i]});
-            std.process.exit(1);
+            return 1;
         } else {
             break;
         }
@@ -31,8 +31,7 @@ pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer,
 
     if (pos_args.len == 0) {
         try stdout.writeAll(usage);
-        try stderr.print("error: missing operand\n", .{});
-        std.process.exit(1);
+        return 0;
     }
 
     for (pos_args) |arg| {
@@ -43,4 +42,6 @@ pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer,
         const dir = std.fs.path.dirname(arg) orelse ".";
         try stdout.print("{s}\n", .{dir});
     }
+
+    return 0;
 }

@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const usage =
+    \\
     \\Usage: echo [OPTIONS] [ARG]...
     \\
     \\Print the specified ARGs to stdout.
@@ -10,7 +11,6 @@ const usage =
     \\  -n        don't print trailing newline
     \\  -e        interpret backslash escapes
     \\
-    \\
 ;
 
 const Flags = struct {
@@ -18,7 +18,7 @@ const Flags = struct {
     interpret_escapes: bool,
 };
 
-pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!void {
+pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!u8 {
     var flags = Flags{
         .print_newline = true,
         .interpret_escapes = false,
@@ -28,7 +28,7 @@ pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer,
     while (i < args.len) {
         if (std.mem.eql(u8, args[i], "--help")) {
             try stdout.writeAll(usage);
-            return;
+            return 0;
         } else if (std.mem.eql(u8, args[i], "-n")) {
             flags.print_newline = false;
         } else if (std.mem.eql(u8, args[i], "-e")) {
@@ -36,7 +36,7 @@ pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer,
         } else if (std.mem.startsWith(u8, args[i], "-") or std.mem.startsWith(u8, args[i], "--")) {
             try stdout.writeAll(usage);
             try stderr.print("error: unknown option '{s}'\n", .{args[i]});
-            std.process.exit(1);
+            return 1;
         } else {
             break;
         }
@@ -45,7 +45,7 @@ pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer,
 
     if (flags.interpret_escapes) {
         try stderr.print("error: -e is not implemented\n", .{});
-        std.process.exit(1);
+        return 1;
     }
 
     const pos_args = args[i..];
@@ -59,4 +59,6 @@ pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer,
     if (flags.print_newline) {
         try stdout.print("\n", .{});
     }
+
+    return 0;
 }

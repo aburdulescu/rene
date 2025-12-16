@@ -1,75 +1,107 @@
 const std = @import("std");
 
 const usage =
-    \\Usage: du [OPTIONS] [FILE]...
+    \\
+    \\Usage: du [OPTIONS] FILE|DIRECTORY...
     \\
     \\Summarize disk usage for the given FILE or directory.
     \\If the FILE is not specified, '.' will be used.
-    \\If no size related option is provided, the size will be printed in kilobytes.
     \\
     \\OPTIONS:
     \\  --help    print this message and exit
-    \\  -h        print human readable sizes(e.g. 11K 22M 63G)
     \\  -b        print sizes in bytes
-    \\
+    \\  -l        list sorted by size
     \\
 ;
 
 const Flags = struct {
-    print_human: bool,
     print_bytes: bool,
-    print_total: bool,
+    print_list: bool,
 };
 
 var flags = Flags{
     .print_bytes = false,
-    .print_human = false,
-    .print_total = false,
+    .print_list = false,
 };
 
-pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!void {
+pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!u8 {
     var i: usize = 0;
     while (i < args.len) {
         if (std.mem.eql(u8, args[i], "--help")) {
             try stdout.writeAll(usage);
-            return;
-        } else if (std.mem.eql(u8, args[i], "-h")) {
-            flags.print_human = true;
+            return 0;
         } else if (std.mem.eql(u8, args[i], "-b")) {
             flags.print_bytes = true;
-        } else if (std.mem.eql(u8, args[i], "-s")) {
-            flags.print_total = true;
+        } else if (std.mem.eql(u8, args[i], "-l")) {
+            flags.print_list = true;
         } else if (std.mem.startsWith(u8, args[i], "-") or std.mem.startsWith(u8, args[i], "--")) {
             try stdout.writeAll(usage);
             try stderr.print("error: unknown option '{s}'\n", .{args[i]});
-            std.process.exit(1);
+            return 1;
         } else {
             break;
         }
         i += 1;
     }
 
-    if (flags.print_bytes and flags.print_human) {
-        try stderr.print("error: -b and -h cannot be used at the same time, choose one\n", .{});
-        std.process.exit(1);
-    }
-
     const pos_args = args[i..];
     if (pos_args.len == 0) {
-        try walk_dir(stdout, allocator, ".");
+        try stderr.print("error: file or directory not specified\n", .{});
+        return 1;
     }
 
     for (pos_args) |path| {
-        const st = try std.fs.cwd().statFile(path);
-        if (st.kind != std.fs.File.Kind.directory) {
-            try print(stdout, path, st.size);
+        if (flags.print_list) {
+            const Item = struct {
+                path: []const u8,
+                size: u128,
+            };
+
+            var files = try std.ArrayList(Item).initCapacity(allocator, 100);
+
+            var dir = try std.fs.cwd().openDir(path, .{ .iterate = true });
+            defer dir.close();
+
+            var total: u128 = 0;
+
+            var it = dir.iterate();
+            while (try it.next()) |entry| {
+                if (entry.kind == std.fs.File.Kind.sym_link) continue;
+                const size = try get_size(allocator, entry.name);
+                try files.append(allocator, Item{ .path = entry.name, .size = size });
+                total += size;
+            }
+
+            const cmp = struct {
+                pub fn lessThan(_: void, a: Item, b: Item) bool {
+                    return a.size < b.size;
+                }
+            }.lessThan;
+            std.sort.block(Item, files.items, {}, cmp);
+
+            for (files.items) |item| {
+                try print(stdout, item.path, item.size);
+            }
+            try print(stdout, path, total);
         } else {
-            try walk_dir(stdout, allocator, path);
+            const size = try get_size(allocator, path);
+            try print(stdout, path, size);
         }
+    }
+
+    return 0;
+}
+
+fn get_size(allocator: std.mem.Allocator, path: []const u8) !u128 {
+    const st = try std.fs.cwd().statFile(path);
+    if (st.kind != std.fs.File.Kind.directory) {
+        return st.size;
+    } else {
+        return walk_dir(allocator, path);
     }
 }
 
-fn walk_dir(stdout: *std.Io.Writer, allocator: std.mem.Allocator, dir_path: []const u8) !void {
+fn walk_dir(allocator: std.mem.Allocator, dir_path: []const u8) !u128 {
     var dir = try std.fs.cwd().openDir(dir_path, .{ .iterate = true });
     defer dir.close();
 
@@ -90,7 +122,7 @@ fn walk_dir(stdout: *std.Io.Writer, allocator: std.mem.Allocator, dir_path: []co
         total += st.size;
     }
 
-    try print(stdout, dir_path, total);
+    return total;
 }
 
 const KB = 1 << 10;
@@ -99,24 +131,19 @@ const GB = MB << 10;
 
 const sep = "  ";
 
-fn print(stdout: *std.Io.Writer, dir: []const u8, total: u128) !void {
+fn print(stdout: *std.Io.Writer, dir: []const u8, size: u128) !void {
     if (flags.print_bytes) {
-        try stdout.print("{d}{s}{s}\n", .{ total, sep, dir });
+        try stdout.print("{d}{s}{s}\n", .{ size, sep, dir });
         return;
     }
 
-    if (!flags.print_human) {
-        try stdout.print("{d}{s}{s}\n", .{ total / KB, sep, dir });
-        return;
-    }
-
-    if (total > GB) {
-        try stdout.print("{d}G{s}{s}\n", .{ total / GB, sep, dir });
-    } else if (total > MB) {
-        try stdout.print("{d}M{s}{s}\n", .{ total / MB, sep, dir });
-    } else if (total > KB) {
-        try stdout.print("{d}K{s}{s}\n", .{ total / KB, sep, dir });
+    if (size > GB) {
+        try stdout.print("{d}G{s}{s}\n", .{ size / GB, sep, dir });
+    } else if (size > MB) {
+        try stdout.print("{d}M{s}{s}\n", .{ size / MB, sep, dir });
+    } else if (size > KB) {
+        try stdout.print("{d}K{s}{s}\n", .{ size / KB, sep, dir });
     } else {
-        try stdout.print("{d}{s}{s}\n", .{ total, sep, dir });
+        try stdout.print("{d}{s}{s}\n", .{ size, sep, dir });
     }
 }

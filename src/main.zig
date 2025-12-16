@@ -11,6 +11,7 @@ const touch = @import("./touch.zig");
 const ls = @import("./ls.zig");
 
 const usage =
+    \\
     \\Usage: rene <COMMAND> [OPTIONS]
     \\
     \\COMMANDS:
@@ -18,10 +19,9 @@ const usage =
     \\
     \\Run 'rene <command> --help' for details about a specific command.
     \\
-    \\
 ;
 
-pub fn main() !void {
+pub fn main() !u8 {
     var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena_instance.deinit();
     const arena = arena_instance.allocator();
@@ -39,12 +39,12 @@ pub fn main() !void {
     var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
     const stderr = &stderr_writer.interface;
 
+    defer stdout.flush() catch {};
+    defer stderr.flush() catch {};
+
     // if exe name is a supported cmd name => run it
     if (parseCmd(cmd)) |runner| {
-        try runner(arena, stdout, stderr, args);
-        try stdout.flush();
-        try stderr.flush();
-        return;
+        return try runner(arena, stdout, stderr, args);
     }
 
     // otherwise => use next arg
@@ -52,8 +52,8 @@ pub fn main() !void {
         (args.len > 0 and
             std.mem.eql(u8, args[0], "--help")))
     {
-        std.debug.print(usage, .{});
-        return;
+        try stderr.print(usage, .{});
+        return 0;
     }
 
     cmd = args[0];
@@ -61,19 +61,16 @@ pub fn main() !void {
 
     // supported cmd => run it
     if (parseCmd(cmd)) |runner| {
-        try runner(arena, stdout, stderr, args);
-        try stdout.flush();
-        try stderr.flush();
-        return;
+        return try runner(arena, stdout, stderr, args);
     }
 
     // unknown cmd
-    std.debug.print(usage, .{});
-    std.debug.print("error: unknown command '{s}'\n", .{cmd});
-    std.process.exit(1);
+    try stderr.print("error: unknown command '{s}'\n", .{cmd});
+    try stderr.print(usage, .{});
+    return 1;
 }
 
-const CmdRunner = *const fn (allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!void;
+const CmdRunner = *const fn (allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!u8;
 
 fn parseCmd(name: []const u8) ?CmdRunner {
     for (commands) |cmd| {

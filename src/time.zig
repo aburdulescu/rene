@@ -2,6 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const usage =
+    \\
     \\Usage: time [OPTIONS] PROG [ARG]...
     \\
     \\Run PROG and display resource usage when it exits
@@ -15,7 +16,7 @@ const Flags = struct {
     verbose: bool,
 };
 
-pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!void {
+pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!u8 {
     switch (builtin.os.tag) {
         .linux, .macos => {},
         else => {
@@ -31,13 +32,13 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
     while (i < args.len) {
         if (std.mem.eql(u8, args[i], "--help")) {
             try stdout.writeAll(usage);
-            return;
+            return 0;
         } else if (std.mem.eql(u8, args[i], "-v")) {
             flags.verbose = true;
         } else if (std.mem.startsWith(u8, args[i], "-") or std.mem.startsWith(u8, args[i], "--")) {
             try stdout.writeAll(usage);
             try stderr.print("error: unknown option '{s}'\n", .{args[i]});
-            std.process.exit(1);
+            return 1;
         } else {
             break;
         }
@@ -47,7 +48,7 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
     const pos_args = args[i..];
     if (pos_args.len == 0) {
         try stdout.writeAll(usage);
-        return;
+        return 0;
     }
 
     var child = std.process.Child.init(pos_args, allocator);
@@ -63,7 +64,7 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
         .Exited => |code| code,
         else => {
             try stderr.print("error: command terminated unexpectedly\n", .{});
-            std.process.exit(1);
+            return 1;
         },
     };
 
@@ -100,6 +101,8 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
     } else {
         try stderr.print("{D} wall {D} user {D} system\n", .{ wall_time, usr_time, sys_time });
     }
+
+    return 0;
 }
 
 fn tvToNs(tv: std.c.timeval) u64 {

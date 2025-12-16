@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const usage =
+    \\
     \\Usage: basename [OPTIONS] [FILE]...
     \\
     \\Strip directory and suffix from FILEs.
@@ -9,14 +10,13 @@ const usage =
     \\  --help    print this message and exit
     \\  -s        remove trailing suffix
     \\
-    \\
 ;
 
 const Flags = struct {
     suffix: ?[]const u8,
 };
 
-pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!void {
+pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!u8 {
     var flags = Flags{
         .suffix = null,
     };
@@ -25,18 +25,18 @@ pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer,
     while (i < args.len) {
         if (std.mem.eql(u8, args[i], "--help")) {
             try stdout.print(usage, .{});
-            return;
+            return 0;
         } else if (std.mem.eql(u8, args[i], "-s")) {
             if (i + 1 == args.len) {
                 try stderr.print("error: -s needs a value\n", .{});
-                std.process.exit(1);
+                return 1;
             }
             flags.suffix = args[i + 1];
             i += 1;
         } else if (std.mem.startsWith(u8, args[i], "-") or std.mem.startsWith(u8, args[i], "--")) {
             try stdout.writeAll(usage);
             try stderr.print("error: unknown option '{s}'\n", .{args[i]});
-            std.process.exit(1);
+            return 1;
         } else {
             break;
         }
@@ -47,8 +47,7 @@ pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer,
 
     if (pos_args.len == 0) {
         try stdout.writeAll(usage);
-        try stderr.print("error: missing operand\n", .{});
-        std.process.exit(1);
+        return 0;
     }
 
     for (pos_args) |arg| {
@@ -58,4 +57,6 @@ pub fn run(_: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer,
         }
         try stdout.print("{s}\n", .{base});
     }
+
+    return 0;
 }
