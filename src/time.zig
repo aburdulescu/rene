@@ -16,6 +16,13 @@ const Flags = struct {
 };
 
 pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io.Writer, args: [][:0]u8) anyerror!void {
+    switch (builtin.os.tag) {
+        .linux, .macos => {},
+        else => {
+            @panic("OS not supported");
+        },
+    }
+
     var flags = Flags{
         .verbose = false,
     };
@@ -38,7 +45,6 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
     }
 
     const pos_args = args[i..];
-
     if (pos_args.len == 0) {
         try stdout.writeAll(usage);
         return;
@@ -49,12 +55,8 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
 
     var timer = std.time.Timer.start() catch @panic("need timer to work");
 
-    // start time
     const start = timer.read();
-
     const term = try child.spawnAndWait();
-
-    // stop time
     const end = timer.read();
 
     const exit_status: u8 = switch (term) {
@@ -65,78 +67,45 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
         },
     };
 
-    const elapsed_time = prettyTime(end - start);
+    const wall_time = end - start;
 
-    switch (builtin.os.tag) {
-        .linux => {
-            const r = child.resource_usage_statistics.rusage.?;
+    const max_rss = child.resource_usage_statistics.getMaxRss().?;
+    const pretty_max_rss = prettySize(max_rss);
 
-            const usr_time = prettyTime(tvToNs(r.utime));
-            const sys_time = prettyTime(tvToNs(r.stime));
+    const r = child.resource_usage_statistics.rusage.?;
 
-            const max_rss: u64 = @intCast(r.maxrss);
-            const pretty_max_rss = prettySize(max_rss * 1024);
+    const usr_time = tvToNs(r.utime);
+    const sys_time = tvToNs(r.stime);
 
-            if (flags.verbose) {
-                try stderr.print("\tcmd        \"", .{});
-                for (0.., pos_args) |index, arg| {
-                    if (index == pos_args.len - 1) {
-                        try stderr.print("{s}\"\n", .{arg});
-                    } else {
-                        try stderr.print("{s} ", .{arg});
-                    }
-                }
-                try stderr.print("\trc         {d}\n", .{exit_status});
-                try stderr.print("\twtime      {d}{s}\n", .{ elapsed_time.value, elapsed_time.unit });
-                try stderr.print("\tutime      {d}{s}\n", .{ usr_time.value, usr_time.unit });
-                try stderr.print("\tstime      {d}{s}\n", .{ sys_time.value, sys_time.unit });
-                try stderr.print("\tmaxrss     {d}{s}\n", .{ pretty_max_rss.value, pretty_max_rss.unit });
-                try stderr.print("\tminflt     {d}\n", .{r.minflt});
-                try stderr.print("\tmajflt     {d}\n", .{r.majflt});
-                try stderr.print("\tinblock    {d}\n", .{r.inblock});
-                try stderr.print("\toublock    {d}\n", .{r.oublock});
-                try stderr.print("\tnvcsw      {d}\n", .{r.nvcsw});
-                try stderr.print("\tnivcsw     {d}\n", .{r.nivcsw});
+    if (flags.verbose) {
+        try stderr.print("\tcmd        \"", .{});
+        for (0.., pos_args) |index, arg| {
+            if (index == pos_args.len - 1) {
+                try stderr.print("{s}\"\n", .{arg});
             } else {
-                try stderr.print("real    {d}{s}\n", .{ elapsed_time.value, elapsed_time.unit });
-                try stderr.print("user    {d}{s}\n", .{ usr_time.value, usr_time.unit });
-                try stderr.print("sys     {d}{s}\n", .{ sys_time.value, sys_time.unit });
+                try stderr.print("{s} ", .{arg});
             }
-        },
-
-        else => @panic("os not supported"),
+        }
+        try stderr.print("\trc         {d}\n", .{exit_status});
+        try stderr.print("\twtime      {D}\n", .{wall_time});
+        try stderr.print("\tutime      {D}\n", .{usr_time});
+        try stderr.print("\tstime      {D}\n", .{sys_time});
+        try stderr.print("\tmaxrss     {d}{s}\n", .{ pretty_max_rss.value, pretty_max_rss.unit });
+        try stderr.print("\tminflt     {d}\n", .{r.minflt});
+        try stderr.print("\tmajflt     {d}\n", .{r.majflt});
+        try stderr.print("\tinblock    {d}\n", .{r.inblock});
+        try stderr.print("\toublock    {d}\n", .{r.oublock});
+        try stderr.print("\tnvcsw      {d}\n", .{r.nvcsw});
+        try stderr.print("\tnivcsw     {d}\n", .{r.nivcsw});
+    } else {
+        try stderr.print("wall {D} usr {D} sys {D}\n", .{ wall_time, usr_time, sys_time });
     }
 }
 
-fn tvToNs(tv: std.os.linux.timeval) u64 {
+fn tvToNs(tv: std.c.timeval) u64 {
     const s: u64 = @intCast(tv.sec);
     const u: u64 = @intCast(tv.usec);
     return s * std.time.ns_per_s + u * std.time.ns_per_us;
-}
-
-const PrettyTime = struct {
-    value: f64,
-    unit: []const u8,
-};
-
-fn prettyTime(v: u64) PrettyTime {
-    if (v >= std.time.ns_per_s) {
-        const vf: f64 = @floatFromInt(v);
-        const df: f64 = @floatFromInt(std.time.ns_per_s);
-        return .{ .value = vf / df, .unit = "s" };
-    }
-    if (v >= std.time.ns_per_ms) {
-        const vf: f64 = @floatFromInt(v);
-        const df: f64 = @floatFromInt(std.time.ns_per_ms);
-        return .{ .value = vf / df, .unit = "ms" };
-    }
-    if (v >= std.time.ns_per_us) {
-        const vf: f64 = @floatFromInt(v);
-        const df: f64 = @floatFromInt(std.time.ns_per_us);
-        return .{ .value = vf / df, .unit = "us" };
-    }
-    const vf: f64 = @floatFromInt(v);
-    return .{ .value = vf, .unit = "ns" };
 }
 
 const PrettySize = struct {

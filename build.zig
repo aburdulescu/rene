@@ -53,7 +53,7 @@ pub fn build(b: *std.Build) void {
         rel_opts.target = resolved_target;
         rel_opts.optimize = if (optimize != .Debug) optimize else .ReleaseFast;
         const rel_exe = b.addExecutable(.{
-            .name = "ingot",
+            .name = "rene",
             .root_module = b.createModule(rel_opts),
         });
 
