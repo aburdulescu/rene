@@ -95,14 +95,11 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.Io.Writer, stderr: *std.Io
     var buf: [std.fs.max_path_bytes]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(buf[0..]);
 
-    while (try walker.next()) |entry| {
-        // TODO: don't stop if error happens for a path, print error and go on
-        if (std.mem.startsWith(u8, entry.basename, ".") and flags.ignore_hidden) {
-            continue;
-        }
-        if (file_type != std.fs.File.Kind.unknown and entry.kind != file_type) {
-            continue;
-        }
+    while (true) {
+        const result = walker.next() catch |err| { try stderr.print("error: {}\n", .{err}); continue; };
+        const entry = result orelse break;
+        if (std.mem.startsWith(u8, entry.basename, ".") and flags.ignore_hidden) { continue; }
+        if (file_type != std.fs.File.Kind.unknown and entry.kind != file_type) { continue; }
         const full_path = try std.fs.path.join(fba.allocator(), &[_][]const u8{
             dir_path, entry.path,
         });
